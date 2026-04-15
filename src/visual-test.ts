@@ -5,10 +5,11 @@
  * Maximize or snap the window first to make the pixel gutter visible.
  *
  * Sequence:
- *   1. BEFORE — cells painted navy via ANSI, NO OSC 11 emitted.
- *              Gutter stays at terminal default (visible seam at edges).
- *   2. AFTER  — OSC 11 emitted. Gutter syncs to match navy. Seam gone.
- *   3. RESET  — OSC 111 restores terminal default background.
+ *   BEFORE — RGB flash via ANSI cell bg only. No OSC 11.
+ *            Gutter stays at terminal default the whole time.
+ *   AFTER  — RGB flash with OSC 11 emitted each frame.
+ *            Gutter syncs to each color. No seam.
+ *   RESET  — OSC 111 restores terminal default.
  *
  * Usage:
  *   bun run visual-test
@@ -17,15 +18,13 @@
 const RESET_BG = "\x1b]111\x07"
 const RESET_ANSI = "\x1b[0m"
 
-// OSC 11 — sets terminal emulator background (pixel gutter)
 function osc11(r: number, g: number, b: number): string {
   const hex = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0")
   return `\x1b]11;rgb:${hex(r)}/${hex(g)}/${hex(b)}\x07`
 }
 
-// ANSI cell background — paints character cells only, not the gutter
 function ansiBg(r: number, g: number, b: number): string {
-  return `\x1b[48;2;${Math.round(r * 255)};${Math.round(g * 255)};${Math.round(b * 255)}m`
+  return `\x1b[48;2;${r};${g};${b}m`
 }
 
 function sleep(ms: number): Promise<void> {
@@ -37,59 +36,63 @@ function fillScreen(bgSeq: string, lines: string[]): void {
   const rows = process.stdout.rows ?? 24
   process.stdout.write("\x1b[2J\x1b[H")
   process.stdout.write(bgSeq)
-  // flood-fill every cell so the bg color is visible
-  for (let r = 0; r < rows; r++) {
-    process.stdout.write(" ".repeat(cols))
-  }
-  process.stdout.write("\x1b[H") // back to top
-  for (const line of lines) {
-    process.stdout.write(line + "\n")
+  for (let i = 0; i < rows; i++) process.stdout.write(" ".repeat(cols))
+  process.stdout.write("\x1b[H")
+  for (const line of lines) process.stdout.write(line + "\n")
+}
+
+// Cycle: red → green → blue → red, N steps
+function* rgbFrames(steps: number): Generator<[number, number, number]> {
+  for (let i = 0; i < steps; i++) {
+    const t = i / steps
+    // smooth hue rotation through R→G→B→R
+    const r = Math.round(Math.max(0, Math.sin(t * Math.PI * 2) * 127 + 128))
+    const g = Math.round(Math.max(0, Math.sin((t - 1 / 3) * Math.PI * 2) * 127 + 128))
+    const b = Math.round(Math.max(0, Math.sin((t - 2 / 3) * Math.PI * 2) * 127 + 128))
+    yield [r, g, b]
   }
 }
 
-const NAVY = { r: 0x21 / 255, g: 0x23 / 255, b: 0x2e / 255 } // #21232e
+const STEPS = 60
+const FRAME_MS = 50 // ~20fps
+
+async function runPhase(
+  label: string,
+  sublabel: string,
+  withOsc11: boolean,
+): Promise<void> {
+  for (const [r, g, b] of rgbFrames(STEPS)) {
+    if (withOsc11) process.stdout.write(osc11(r / 255, g / 255, b / 255))
+    fillScreen(ansiBg(r, g, b), [
+      label,
+      "",
+      sublabel,
+      withOsc11
+        ? "OSC 11 emitted each frame — gutter follows."
+        : "No OSC 11 — gutter stays at terminal default.",
+      "",
+      `Current color: rgb(${r}, ${g}, ${b})`,
+    ])
+    await sleep(FRAME_MS)
+  }
+}
 
 async function run() {
   // ── BEFORE ────────────────────────────────────────────────────────────────
-  // Cells painted navy via ANSI bg — but NO OSC 11 emitted.
-  // The pixel gutter at the right/bottom edges stays at the terminal default.
-  fillScreen(ansiBg(NAVY.r, NAVY.g, NAVY.b), [
-    "BEFORE — no OSC 11",
-    "",
-    "Cells: navy (#21232e) via ANSI cell background",
-    "Gutter: terminal default (look at right/bottom edges)",
-    "",
-    "The seam is the mismatch between the cell color",
-    "and the unpainted pixel remainder outside the grid.",
-    "",
-    "Syncing gutter in 4 seconds...",
-  ])
+  await runPhase("BEFORE — no OSC 11", "Cells cycle RGB via ANSI bg. Gutter does not follow.", false)
 
-  await sleep(4000)
+  await sleep(500)
 
   // ── AFTER ─────────────────────────────────────────────────────────────────
-  // Now emit OSC 11 — terminal repaints gutter to match. Seam disappears.
-  process.stdout.write(osc11(NAVY.r, NAVY.g, NAVY.b))
-  fillScreen(ansiBg(NAVY.r, NAVY.g, NAVY.b), [
-    "AFTER — OSC 11 emitted",
-    "",
-    "Cells: navy (#21232e) via ANSI cell background",
-    "Gutter: navy (#21232e) via OSC 11 — seam is gone",
-    "",
-    "setBackgroundColor() now emits this automatically.",
-    "",
-    "Restoring terminal default in 4 seconds...",
-  ])
+  await runPhase("AFTER  — OSC 11 emitted", "Cells cycle RGB via ANSI bg. Gutter syncs each frame.", true)
 
-  await sleep(4000)
+  await sleep(500)
 
   // ── RESET ─────────────────────────────────────────────────────────────────
   process.stdout.write(RESET_BG)
   process.stdout.write(RESET_ANSI)
   process.stdout.write("\x1b[2J\x1b[H")
-  process.stdout.write("RESET — OSC 111 emitted.\n")
-  process.stdout.write("Terminal background restored to its default.\n")
-  process.stdout.write("Fires automatically on destroy() and suspend() with the fix.\n\n")
+  process.stdout.write("RESET — OSC 111 emitted. Terminal background restored.\n\n")
   process.stdout.write("Done.\n")
 }
 
