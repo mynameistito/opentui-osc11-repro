@@ -27,25 +27,47 @@ function ansiBg(r: number, g: number, b: number): string {
   return `\x1b[48;2;${r};${g};${b}m`
 }
 
+// Pick black or white fg based on luminance so text is always readable
+function contrastFg(r: number, g: number, b: number): string {
+  const luma = 0.299 * r + 0.587 * g + 0.114 * b
+  return luma > 140 ? "\x1b[30;1m" : "\x1b[97;1m" // bold black or bold white
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function fillScreen(bgSeq: string, lines: string[]): void {
+function fillScreen(r: number, g: number, b: number, withOsc11: boolean, frame: number, total: number): void {
   const cols = process.stdout.columns ?? 80
   const rows = process.stdout.rows ?? 24
-  process.stdout.write("\x1b[2J\x1b[H")
-  process.stdout.write(bgSeq)
-  for (let i = 0; i < rows; i++) process.stdout.write(" ".repeat(cols))
-  process.stdout.write("\x1b[H")
-  for (const line of lines) process.stdout.write(line + "\n")
+  const fg = contrastFg(r, g, b)
+  const bg = ansiBg(r, g, b)
+
+  const lines = [
+    "",
+    withOsc11 ? "  AFTER  — OSC 11 emitted each frame" : "  BEFORE — no OSC 11",
+    "",
+    withOsc11
+      ? "  Gutter syncs to each color  (no seam)"
+      : "  Gutter stays at terminal default  (seam visible at edges)",
+    "",
+    `  Color : rgb(${String(r).padStart(3)}, ${String(g).padStart(3)}, ${String(b).padStart(3)})`,
+    `  Frame : ${String(frame + 1).padStart(3)} / ${total}`,
+  ]
+
+  let out = "\x1b[H"
+  for (let row = 0; row < rows; row++) {
+    const line = lines[row] ?? ""
+    // pad line to full width so bg floods the row, then overlay text
+    out += bg + " ".repeat(cols) + `\x1b[${row + 1};1H` + bg + fg + line + RESET_ANSI
+  }
+  process.stdout.write(out)
 }
 
-// Cycle: red → green → blue → red, N steps
+// Smooth hue rotation R → G → B → R
 function* rgbFrames(steps: number): Generator<[number, number, number]> {
   for (let i = 0; i < steps; i++) {
     const t = i / steps
-    // smooth hue rotation through R→G→B→R
     const r = Math.round(Math.max(0, Math.sin(t * Math.PI * 2) * 127 + 128))
     const g = Math.round(Math.max(0, Math.sin((t - 1 / 3) * Math.PI * 2) * 127 + 128))
     const b = Math.round(Math.max(0, Math.sin((t - 2 / 3) * Math.PI * 2) * 127 + 128))
@@ -53,47 +75,34 @@ function* rgbFrames(steps: number): Generator<[number, number, number]> {
   }
 }
 
-const STEPS = 60
-const FRAME_MS = 50 // ~20fps
+const STEPS = 90   // one full RGB rotation
+const FRAME_MS = 16 // ~60 fps
 
-async function runPhase(
-  label: string,
-  sublabel: string,
-  withOsc11: boolean,
-): Promise<void> {
-  for (const [r, g, b] of rgbFrames(STEPS)) {
+async function runPhase(withOsc11: boolean): Promise<void> {
+  const frames = [...rgbFrames(STEPS)]
+  for (let i = 0; i < frames.length; i++) {
+    const [r, g, b] = frames[i]
     if (withOsc11) process.stdout.write(osc11(r / 255, g / 255, b / 255))
-    fillScreen(ansiBg(r, g, b), [
-      label,
-      "",
-      sublabel,
-      withOsc11
-        ? "OSC 11 emitted each frame — gutter follows."
-        : "No OSC 11 — gutter stays at terminal default.",
-      "",
-      `Current color: rgb(${r}, ${g}, ${b})`,
-    ])
+    fillScreen(r, g, b, withOsc11, i, STEPS)
     await sleep(FRAME_MS)
   }
 }
 
 async function run() {
-  // ── BEFORE ────────────────────────────────────────────────────────────────
-  await runPhase("BEFORE — no OSC 11", "Cells cycle RGB via ANSI bg. Gutter does not follow.", false)
+  process.stdout.write("\x1b[?25l") // hide cursor
+  process.stdout.write("\x1b[2J\x1b[H")
 
-  await sleep(500)
+  await runPhase(false)
+  await sleep(600)
+  await runPhase(true)
+  await sleep(600)
 
-  // ── AFTER ─────────────────────────────────────────────────────────────────
-  await runPhase("AFTER  — OSC 11 emitted", "Cells cycle RGB via ANSI bg. Gutter syncs each frame.", true)
-
-  await sleep(500)
-
-  // ── RESET ─────────────────────────────────────────────────────────────────
+  // reset
   process.stdout.write(RESET_BG)
   process.stdout.write(RESET_ANSI)
+  process.stdout.write("\x1b[?25h") // show cursor
   process.stdout.write("\x1b[2J\x1b[H")
-  process.stdout.write("RESET — OSC 111 emitted. Terminal background restored.\n\n")
-  process.stdout.write("Done.\n")
+  process.stdout.write("RESET — OSC 111 emitted. Terminal background restored.\n\nDone.\n")
 }
 
 run().catch(console.error)
