@@ -44,6 +44,7 @@ cd ../opentui-osc11-repro && bun install
 ```bash
 # Visual demo — run in Windows Terminal, iTerm2, Ghostty, etc.
 bun run demo
+bun run visual-test # RGB Demo
 
 # Unit tests (no terminal required)
 bun test
