@@ -1,0 +1,29 @@
+src/osc.test.ts
+  70782c775370dfcb 29,32-36,41
+README.md
+  70782c775370dfcb 31-32,35-36
+src/demo.ts
+  70782c775370dfcb 12-16,18-19,21,23,28
+package.json
+  70782c775370dfcb 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "d8776bdf07524b1cf369118c0bae4cf5006cde5f",
+  "prompts": {
+    "70782c775370dfcb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aedda279-545e-4cf3-9b25-614267e77d89",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Tito",
+      "messages": [],
+      "total_additions": 24,
+      "total_deletions": 22,
+      "accepted_lines": 22,
+      "overriden_lines": 0
+    }
+  }
+}
