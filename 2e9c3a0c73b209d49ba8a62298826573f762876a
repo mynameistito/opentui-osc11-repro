@@ -1,0 +1,23 @@
+src/visual-test.ts
+  70782c775370dfcb 4-5,7-10,17,29-37,40-47,50,52-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "2e9c3a0c73b209d49ba8a62298826573f762876a",
+  "prompts": {
+    "70782c775370dfcb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aedda279-545e-4cf3-9b25-614267e77d89",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Tito",
+      "messages": [],
+      "total_additions": 29,
+      "total_deletions": 27,
+      "accepted_lines": 29,
+      "overriden_lines": 0
+    }
+  }
+}
