@@ -1,0 +1,16 @@
+{
+  "name": "opentui-osc11-repro",
+  "version": "0.0.1",
+  "description": "Minimal repro for OSC 11/111 terminal background color support in opentui",
+  "scripts": {
+    "demo": "bun run src/demo.ts",
+    "visual-test": "bun run src/visual-test.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@opentui/core": "file:../opentui/packages/core"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
