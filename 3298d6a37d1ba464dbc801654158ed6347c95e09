@@ -1,0 +1,31 @@
+package.json
+  70782c775370dfcb 1-15
+src/demo.ts
+  70782c775370dfcb 1-30
+src/osc.test.ts
+  70782c775370dfcb 1-86
+tsconfig.json
+  70782c775370dfcb 1-11
+README.md
+  70782c775370dfcb 1-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "3298d6a37d1ba464dbc801654158ed6347c95e09",
+  "prompts": {
+    "70782c775370dfcb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aedda279-545e-4cf3-9b25-614267e77d89",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Tito",
+      "messages": [],
+      "total_additions": 203,
+      "total_deletions": 3,
+      "accepted_lines": 200,
+      "overriden_lines": 0
+    }
+  }
+}
