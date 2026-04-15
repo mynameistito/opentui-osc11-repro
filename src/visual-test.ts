@@ -17,6 +17,8 @@
 
 const RESET_BG = "\x1b]111\x07"
 const RESET_ANSI = "\x1b[0m"
+const ALT_ENTER = "\x1b[?1049h"
+const ALT_EXIT = "\x1b[?1049l"
 
 function osc11(r: number, g: number, b: number): string {
   const hex = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0")
@@ -88,20 +90,27 @@ async function runPhase(withOsc11: boolean): Promise<void> {
   }
 }
 
+function cleanup(): void {
+  process.stdout.write(RESET_BG)
+  process.stdout.write(RESET_ANSI)
+  process.stdout.write("\x1b[?25h") // show cursor
+  process.stdout.write(ALT_EXIT)    // back to main screen — scroll history intact, no animation residue
+}
+
 async function run() {
+  process.stdout.write(ALT_ENTER)   // enter alternate screen — hides scroll history
   process.stdout.write("\x1b[?25l") // hide cursor
   process.stdout.write("\x1b[2J\x1b[H")
+
+  // ensure clean exit on Ctrl+C
+  process.on("SIGINT", () => { cleanup(); process.exit(0) })
 
   await runPhase(false)
   await sleep(600)
   await runPhase(true)
   await sleep(600)
 
-  // reset
-  process.stdout.write(RESET_BG)
-  process.stdout.write(RESET_ANSI)
-  process.stdout.write("\x1b[?25h") // show cursor
-  process.stdout.write("\x1b[2J\x1b[H")
+  cleanup()
   process.stdout.write("RESET — OSC 111 emitted. Terminal background restored.\n\nDone.\n")
 }
 
