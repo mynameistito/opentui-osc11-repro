@@ -1,20 +1,20 @@
 /**
  * Visual before/after test for OSC 11/111 terminal background sync.
  *
- * Run this in Windows Terminal (or any OSC 11-supporting terminal).
- * You'll see:
- *   1. Terminal background changes to dark navy for 3 seconds  (AFTER behavior)
- *   2. Terminal background resets to default                   (OSC 111 reset)
- *   3. A 2-second gap with default background                  (BEFORE — no sync)
+ * Run in Windows Terminal (or any OSC 11-supporting terminal).
+ * Maximize or snap the window first to make the pixel gutter visible.
+ *
+ * Sequence:
+ *   1. RED background   — simulates "wrong" terminal default vs app theme
+ *   2. NAVY background  — OSC 11 syncs terminal to match theme (#21232e)
+ *   3. DEFAULT restored — OSC 111 resets on exit
  *
  * Usage:
  *   bun run visual-test
- *
- * Requires opentui native build in ../opentui/packages/core.
  */
 
-const THEME_COLOR = { r: 0x21 / 255, g: 0x23 / 255, b: 0x2e / 255 } // #21232e dark navy
 const RESET = "\x1b]111\x07"
+const CLEAR = "\x1b[2J\x1b[H"
 
 function osc11(r: number, g: number, b: number): string {
   const hex = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0")
@@ -26,30 +26,32 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function run() {
-  process.stdout.write("\x1b[2J\x1b[H") // clear screen
-
-  // ── BEFORE ──────────────────────────────────────────────────────────────────
-  process.stdout.write("BEFORE (no OSC 11): pixel gutter stays terminal default\n")
-  process.stdout.write("Look at the right/bottom edges of the terminal window.\n")
-  process.stdout.write("Background is NOT synced to the theme color.\n\n")
-  process.stdout.write("Waiting 3 seconds...\n")
+  // ── BEFORE: red background ───────────────────────────────────────────────
+  // Simulates a terminal whose default background differs from the app theme.
+  // The gutter would bleed this color if OSC 11 isn't emitted.
+  process.stdout.write(osc11(0.6, 0.1, 0.1)) // deep red
+  process.stdout.write(CLEAR)
+  process.stdout.write("BEFORE — terminal background: RED (#991a1a)\n")
+  process.stdout.write("This is what the pixel gutter shows without OSC 11.\n")
+  process.stdout.write("Look at the right/bottom edges — they bleed this color.\n\n")
+  process.stdout.write("Switching to theme color in 3 seconds...\n")
   await sleep(3000)
 
-  process.stdout.write("\x1b[2J\x1b[H")
-
-  // ── AFTER ───────────────────────────────────────────────────────────────────
-  process.stdout.write(osc11(THEME_COLOR.r, THEME_COLOR.g, THEME_COLOR.b))
-
-  process.stdout.write("AFTER (OSC 11 emitted): terminal background synced to #21232e\n")
-  process.stdout.write("The pixel gutter now matches the theme background.\n")
-  process.stdout.write("Maximize or snap the window to make the gutter visible.\n\n")
-  process.stdout.write("Waiting 3 seconds, then resetting...\n")
+  // ── AFTER: navy background ────────────────────────────────────────────────
+  // OSC 11 syncs the terminal background to the app theme. Gutter matches.
+  process.stdout.write(osc11(0x21 / 255, 0x23 / 255, 0x2e / 255)) // #21232e dark navy
+  process.stdout.write(CLEAR)
+  process.stdout.write("AFTER — terminal background: NAVY (#21232e)\n")
+  process.stdout.write("OSC 11 emitted by setBackgroundColor().\n")
+  process.stdout.write("Gutter now matches the theme — no visible seam.\n\n")
+  process.stdout.write("Resetting to terminal default in 3 seconds...\n")
   await sleep(3000)
 
-  // ── RESET ───────────────────────────────────────────────────────────────────
+  // ── RESET: OSC 111 ────────────────────────────────────────────────────────
   process.stdout.write(RESET)
-  process.stdout.write("\x1b[2J\x1b[H")
-  process.stdout.write("RESET (OSC 111 emitted): terminal background restored to default.\n")
+  process.stdout.write(CLEAR)
+  process.stdout.write("RESET — OSC 111 emitted.\n")
+  process.stdout.write("Terminal background restored to its original default.\n")
   process.stdout.write("This fires automatically on destroy() and suspend() with the fix.\n\n")
   process.stdout.write("Done.\n")
 }
