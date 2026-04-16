@@ -1,0 +1,23 @@
+README.md
+  969526c49d728e5b 6-7,12-49,51,53-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "07d727b4ebfae5e2fb477b5ee8f52681cda3490d",
+  "prompts": {
+    "969526c49d728e5b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e8e8dbeb-eae3-43f0-b153-e441212d5495",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Tito",
+      "messages": [],
+      "total_additions": 45,
+      "total_deletions": 11,
+      "accepted_lines": 45,
+      "overriden_lines": 0
+    }
+  }
+}
