@@ -62,12 +62,13 @@ that don't support it ignore it silently — no behavior change on unsupported t
 ## Setup
 
 Requires [opentui](https://github.com/anomalyco/opentui) cloned as a sibling directory
-(`../opentui`) with the OSC 11/111 fix applied. The repro links directly to
+(`../opentui`) with the OSC 11/111 fix applied
+([PR #951](https://github.com/anomalyco/opentui/pull/951)). The repro links directly to
 `../opentui/packages/core` via a `link:` dependency.
 
 ```bash
 # From a shared parent directory:
-git clone https://github.com/mynameistito/opentui https://github.com/anomalyco/opentui  # fork with fix
+git clone https://github.com/mynameistito/opentui  # fork with PR #951 fix
 git clone https://github.com/mynameistito/opentui-osc11-repro
 cd opentui && bun install && bun run build
 cd ../opentui-osc11-repro && bun install
