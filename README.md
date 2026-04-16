@@ -3,21 +3,55 @@
 Minimal reproduction repo for [opentui](https://github.com/anomalyco/opentui) upstream issue:
 **OSC 11/111 — terminal background color sync on theme change and restore on exit.**
 
+Tracked in upstream PR: [anomalyco/opentui#951](https://github.com/anomalyco/opentui/pull/951)
+
 ## Problem
 
 When a TUI app sets a background color via `renderer.setBackgroundColor()`, the terminal emulator's
 own background color is not updated. This causes a mismatch: the rendered content has the correct
-color but the terminal padding/margins around it stays at the default. On exit or suspend the
-terminal background is left tinted.
+color but the terminal padding/margins around it stays at the default. On Windows Terminal
+(maximized or snapped), there's a pixel gutter on the right and bottom edges where the character
+grid doesn't divide evenly into the window — those pixels get painted with the terminal's default,
+not the app's theme. On exit or suspend the terminal background is left tinted.
 
-## Fix (upstream)
+## Fix (upstream PR [#951](https://github.com/anomalyco/opentui/pull/951))
 
-- `setBackgroundColor()` now emits **OSC 11** (`ESC ] 11 ; rgb:rr/gg/bb BEL`) to sync the terminal
-  background with the renderer background.
-- `performShutdownSequence()` (called on both `destroy()` and `suspend()`) now emits **OSC 111**
-  (`ESC ] 111 BEL`) via `resetState()` to restore the terminal background to its default.
-- A `renderer.resetTerminalBgColor()` JS method is also exposed for consumers that need explicit
-  control (e.g. before sending `SIGTSTP`).
+**`zig/ansi.zig`**
+- `setTerminalBgColorOutput()` — emits OSC 11 (`\e]11;rgb:RR/GG/BB\e\`)
+
+**`zig/renderer.zig`**
+- `setBackgroundColor()` now emits OSC 11 after updating the buffer. Skips when alpha is 0
+  (transparent, let the terminal keep its own default) and when `testing` is true.
+
+**`zig/terminal.zig`**
+- `resetState()` now emits OSC 111 after resetting the title. Fires on both `destroy()` and
+  `suspend()` via `performShutdownSequence()`.
+
+**`renderer.ts`**
+- Exposes `resetTerminalBgColor()` as a public JS method for consumers that need explicit control
+  (e.g. before sending `SIGTSTP`).
+
+**`scripts/build.ts`** _(Windows build fix, bundled in same PR)_
+- Passes `--cache-dir` pointing to `%USERPROFILE%\.zig-cache\opentui-core` on Windows. zig 0.15.x
+  panics when the project and zig's global cache are on different drives — `std.fs.path.relative`
+  returns an absolute path across drives, tripping an assertion in `Build/Step/Run.zig:662` inside
+  the `uucode` dep's build-tables step. Forcing the cache onto the home drive keeps all paths on
+  one drive and avoids the panic.
+
+## Context
+
+[anomalyco/opencode](https://github.com/anomalyco/opencode) worked around this at the app layer
+([opencode#19386](https://github.com/anomalyco/opencode/pull/19386); tracking:
+[#19383](https://github.com/anomalyco/opencode/issues/19383),
+[#18055](https://github.com/anomalyco/opencode/issues/18055)). The maintainer flagged it as
+something that should live in opentui instead.
+
+Upstream opentui issue: [anomalyco/opentui#950](https://github.com/anomalyco/opentui/issues/950)
+
+## Compatibility
+
+OSC 11/111 supported by Windows Terminal, iTerm2, kitty, Alacritty, foot, and others. Terminals
+that don't support it ignore it silently — no behavior change on unsupported terminals.
 
 ## Windows support
 
